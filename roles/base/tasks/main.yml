@@ -1,0 +1,91 @@
+---
+# Pre-flight checks
+- name: Check if AWS CLI is installed
+  ansible.builtin.command: which aws
+  register: aws_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if npm is installed
+  ansible.builtin.command: which npm
+  register: npm_check
+  changed_when: false
+  failed_when: false
+  when: env == "dev"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install base dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - unzip
+      - python3-pip  # Required for ansible collections
+    state: present
+
+# Node.js / npm (dev only)
+- name: Install Node.js and npm (dev only)
+  ansible.builtin.apt:
+    name:
+      - nodejs
+      - npm
+    state: present
+  when:
+    - env == "dev"
+    - npm_check.rc != 0
+
+- name: Get npm version
+  ansible.builtin.command: npm --version
+  register: npm_version
+  changed_when: false
+  when: env == "dev"
+
+- name: Display npm status
+  ansible.builtin.debug:
+    msg: "npm version: {{ npm_version.stdout }}{% if npm_check.rc == 0 %} (already installed){% endif %}"
+  when: env == "dev"
+
+# AWS CLI installation
+- name: Download AWS CLI
+  ansible.builtin.get_url:
+    url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+    dest: /tmp/awscliv2.zip
+    mode: '0644'
+  when: aws_check.rc != 0
+
+- name: Unzip AWS CLI
+  ansible.builtin.unarchive:
+    src: /tmp/awscliv2.zip
+    dest: /tmp
+    remote_src: yes
+    creates: /tmp/aws
+  when: aws_check.rc != 0
+
+- name: Install AWS CLI
+  ansible.builtin.command: /tmp/aws/install --update
+  args:
+    creates: /usr/local/bin/aws
+  when: aws_check.rc != 0
+
+- name: Get AWS CLI version
+  ansible.builtin.command: aws --version
+  register: aws_version
+  changed_when: false
+
+- name: Display AWS CLI status
+  ansible.builtin.debug:
+    msg: "AWS CLI version: {{ aws_version.stdout }}{% if aws_check.rc == 0 %} (already installed){% endif %}"
+
+- name: Cleanup AWS CLI install files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/awscliv2.zip
+    - /tmp/aws
+  when: aws_check.rc != 0

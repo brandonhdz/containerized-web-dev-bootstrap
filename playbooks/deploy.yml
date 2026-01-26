@@ -1,0 +1,89 @@
+---
+- name: Deploy container from ECR
+  hosts: localhost
+  connection: local
+  become: false
+
+  vars:
+    # ECR configuration
+    # ecr_alias: "docker"
+    # ecr_repo: "library/node"
+    # image_tag: "21-alpine"
+
+    # Defaults
+    image_tag: "latest"
+    container_port: "3000:3000"
+
+    # Optional overrides
+    # container_name: "my-app"
+    # container_command: "node server.js"
+    # env_file: "vars/my-app.env"
+
+  tasks:
+    # ECR Login
+    - name: Login to ECR Public
+      ansible.builtin.shell: >
+        aws ecr-public get-login-password --region us-east-1 |
+        docker login --username AWS --password-stdin public.ecr.aws
+      changed_when: false
+      register: ecr_login
+
+    - name: ECR login status
+      ansible.builtin.debug:
+        msg: "✓ Logged into ECR Public"
+      when: ecr_login.rc == 0
+
+    # Pull image
+    - name: Pull image from ECR
+      community.docker.docker_image:
+        name: "public.ecr.aws/{{ ecr_alias }}/{{ ecr_repo }}"
+        tag: "{{ image_tag }}"
+        source: pull
+      register: pulled_image
+      when:
+        - ecr_alias is defined
+        - ecr_repo is defined
+
+    - name: Pulled image status
+      ansible.builtin.debug:
+        msg: |
+          ✓ Pulled image
+            Repository: public.ecr.aws/{{ ecr_alias }}/{{ ecr_repo }}
+            Tag:        {{ image_tag }}
+            Size:       {{ (pulled_image.image.Size / 1024 / 1024) | round(2) }} MB
+      when:
+        - ecr_alias is defined
+        - ecr_repo is defined
+        - pulled_image.image is defined
+
+    # Run container
+    - name: Run container
+      community.docker.docker_container:
+        name: "{{ container_name | default(ecr_repo | basename) }}"
+        image: "public.ecr.aws/{{ ecr_alias }}/{{ ecr_repo }}:{{ image_tag }}"
+        state: started
+        detach: true
+        recreate: "{{ force_recreate | default(false) | bool }}"
+        restart_policy: "{{ restart_policy | default('no') }}"
+        ports:
+          - "{{ container_port }}"
+        command: "{{ container_command if container_command is defined else omit }}"
+        entrypoint: "{{ container_entrypoint if container_entrypoint is defined else omit }}"
+        env_file: "{{ env_file | default(omit) }}"
+      register: container_result
+      when:
+        - ecr_alias is defined
+        - ecr_repo is defined
+        - run_container | default(false) | bool
+
+    - name: Container status
+      ansible.builtin.debug:
+        msg: |
+          ✓ Container running
+            Name:   {{ container_name | default(ecr_repo | basename) }}
+            Image:  public.ecr.aws/{{ ecr_alias }}/{{ ecr_repo }}:{{ image_tag }}
+            Port:   {{ container_port }}
+            Status: {{ container_result.container.State.Status }}
+      when:
+        - run_container | default(false) | bool
+        - container_result.container is defined

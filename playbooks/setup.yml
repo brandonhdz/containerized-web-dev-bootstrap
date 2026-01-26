@@ -1,0 +1,15 @@
+---
+- name: Setup development environment
+  hosts: localhost
+  connection: local
+  become: true
+
+  vars:
+    # Environment: "dev" or "prod"
+    # dev: installs npm
+    # prod: skips npm
+    env: "dev"
+
+  roles:
+    - base
+    - docker
