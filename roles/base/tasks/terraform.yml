@@ -1,0 +1,74 @@
+---
+# Terraform through tfenv (Terraform's version manager), for you, not root:
+# terraform_version as your default, and in a project with a
+# .terraform-version file, the version it names (installed on first use).
+# Every download is checked against HashiCorp's signing key, with gpgv.
+- name: Get tfenv {{ tfenv_version }}
+  become: false
+  ansible.builtin.git:
+    repo: https://github.com/tfutils/tfenv.git
+    dest: "{{ tfenv_dir }}"
+    version: "{{ tfenv_version }}"
+    depth: 1
+
+- name: Check Terraform downloads against HashiCorp's signing key
+  become: false
+  ansible.builtin.copy:
+    dest: "{{ tfenv_dir }}/use-gpgv"
+    content: "trust-tfenv: yes\n"
+    mode: '0644'
+
+# ~/.local/bin is on PATH once it exists (Ubuntu's ~/.profile, at login). A
+# terraform installed there by hand is left alone, and this stops, saying so.
+- name: Create ~/.local/bin
+  become: false
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin"
+    state: directory
+    mode: '0755'
+
+- name: Put terraform and tfenv on your PATH
+  become: false
+  block:
+    - name: Link terraform and tfenv into ~/.local/bin
+      ansible.builtin.file:
+        src: "{{ tfenv_dir }}/bin/{{ item }}"
+        dest: "{{ lookup('env', 'HOME') }}/.local/bin/{{ item }}"
+        state: link
+      loop:
+        - terraform
+        - tfenv
+  rescue:
+    - name: Explain what's in the way
+      ansible.builtin.fail:
+        msg: >-
+          ~/.local/bin already has a terraform (or tfenv) that isn't tfenv's,
+          likely installed by hand. Move it aside (mkdir -p ~/.local/state &&
+          mv ~/.local/bin/terraform ~/.local/state/) and run the playbook
+          again: tfenv installs the same versions, signature-checked.
+
+- name: Install Terraform {{ terraform_version }} as your default
+  become: false
+  ansible.builtin.shell: |
+    set -e
+    "{{ tfenv_dir }}/bin/tfenv" install {{ terraform_version }}
+    "{{ tfenv_dir }}/bin/tfenv" use {{ terraform_version }}
+  args:
+    executable: /bin/bash
+  register: terraform_install
+  changed_when: "'Installation of terraform' in (terraform_install.stdout + terraform_install.stderr)"
+
+- name: Get Terraform and tfenv versions
+  become: false
+  ansible.builtin.shell: |
+    echo "$("{{ tfenv_dir }}/bin/terraform" version | head -1), $("{{ tfenv_dir }}/bin/tfenv" --version 2>&1 | head -1)"
+  args:
+    executable: /bin/bash
+    chdir: "{{ tfenv_dir }}"
+  register: terraform_versions
+  changed_when: false
+
+- name: Display Terraform status
+  ansible.builtin.debug:
+    msg: "{{ terraform_versions.stdout }}"
+  when: terraform_versions.stdout is defined

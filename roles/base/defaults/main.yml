@@ -4,3 +4,10 @@
 nvm_version: v0.40.8
 node_version: "24"
 nvm_dir: "{{ lookup('env', 'HOME') }}/.nvm"
+
+# Terraform, through tfenv (dev only): tfenv's release, and the Terraform
+# version that's your default ("latest": the newest when the playbook runs).
+# A project's .terraform-version file overrides it there.
+tfenv_version: v3.2.2
+terraform_version: latest
+tfenv_dir: "{{ lookup('env', 'HOME') }}/.tfenv"

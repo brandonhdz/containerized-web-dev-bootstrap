@@ -29,6 +29,11 @@
   ansible.builtin.include_tasks: node.yml
   when: env == "dev"
 
+# Terraform through tfenv (dev only): terraform.yml.
+- name: Terraform (dev only)
+  ansible.builtin.include_tasks: terraform.yml
+  when: env == "dev"
+
 # AWS CLI installation
 - name: Download AWS CLI
   ansible.builtin.get_url:
