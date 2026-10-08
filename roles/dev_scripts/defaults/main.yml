@@ -1,0 +1,5 @@
+---
+# Where dev-scripts comes from, and where it goes. It's a private repo, so
+# cloning needs this machine's SSH key on GitHub first.
+dev_scripts_repo: git@github.com:brandonhdz/dev-scripts.git
+dev_scripts_dest: "{{ lookup('env', 'HOME') }}/devel/repos/dev-scripts"

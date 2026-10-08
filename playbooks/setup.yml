@@ -13,3 +13,4 @@
   roles:
     - base
     - docker
+    - dev_scripts # as you, not root: bash commands into ~/bin
