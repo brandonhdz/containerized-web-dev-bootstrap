@@ -8,6 +8,18 @@ A bootstrapping tool for setting up a containerized web development environment 
 - **OS:** Ubuntu 24.04 LTS (Noble Numbat)
 - **Ansible:** 2.16.3 (core)
 
+## A New Machine
+
+What setup can't do for you, in order:
+
+1. **An SSH key on GitHub**, before setup, which clones the private dev-scripts over SSH: `ssh-keygen -t ed25519 -C "you@new-machine"`, add `~/.ssh/id_ed25519.pub` at https://github.com/settings/keys, and check it with `ssh -T git@github.com`. (Or run setup first, let `gh auth login` upload the key, and run setup again.)
+2. **Ansible, its collections, and setup** (Quick Start, steps 1–3).
+3. **A new login session**, so your groups (`docker`) and PATH (`~/bin`, `~/.local/bin`, nvm) take effect.
+4. **`gh auth login`**, for gh itself and GitHub over HTTPS.
+5. **Your git identity:** `git config --global user.name "Your Name"` and `git config --global user.email you@example.com`.
+6. **`aws login`** (Installation, step 4).
+7. **Each project's own files that aren't in git** (keys, `.env` files, Terraform variables): copy them from your old machine directly (`scp`, or a USB drive), never by email, chat, or a commit. A project's README says which.
+
 ## Quick Start
 
 ```bash
@@ -17,14 +29,14 @@ sudo apt update && sudo apt install -y ansible
 # 2. Install required collections
 ansible-galaxy collection install -r requirements.yml
 
-# 3. Run setup
-ansible-playbook playbooks/setup.yml
+# 3. Run setup (-K asks for your sudo password)
+ansible-playbook playbooks/setup.yml -K
 
 # 4. Activate docker group (or log out/in)
 newgrp docker
 
-# 5. Configure AWS CLI
-aws configure
+# 5. Sign in to AWS
+aws login
 
 # 6. Pull an image
 ansible-playbook playbooks/deploy.yml \
@@ -55,14 +67,17 @@ This installs:
 ### 3. Run the Setup Playbook
 
 ```bash
-ansible-playbook playbooks/setup.yml
+ansible-playbook playbooks/setup.yml -K
 ```
+
+`-K` asks for your sudo password: most of setup runs as root. What goes in your home (nvm, tfenv, dev-scripts) is done as you.
 
 This will install:
 - Node.js 24 LTS and npm, through [nvm](https://github.com/nvm-sh/nvm), for you (dev only). For an older project, `nvm install 18` and `nvm use 18`, or an `.nvmrc` in it. Ubuntu's own Node.js, if an earlier run installed it, is removed first.
 - Terraform through [tfenv](https://github.com/tfutils/tfenv), for you (dev only): the newest as your default, and in a project with a `.terraform-version` file, the version it names (downloaded the first time you run `terraform` there). Every download is checked against HashiCorp's signing key. `terraform` and `tfenv` are linked into `~/.local/bin`, on PATH once you log in again. A `terraform` already there, installed by hand, stops the run with how to move it aside.
-- AWS CLI v2
-- Docker CE (core engine, CLI, containerd)
+- The GitHub CLI (`gh`) from GitHub's own apt repo (dev only), replacing Ubuntu's older one if it's there
+- AWS CLI v2, the latest, when it's missing or older than 2.32 (the first with `aws login`)
+- Docker CE (core engine, CLI, containerd, and the Compose and Buildx plugins)
 - Python Docker SDK (for community.docker)
 - Adds your user to the `docker` group
 - [dev-scripts](https://github.com/brandonhdz/dev-scripts) (private): bash commands for development (`in-aws`, `log-run`, `tf`, `ans-pbk`), linked into `~/bin`, with tab completion. As you, not root.
@@ -74,22 +89,19 @@ This will install:
 For production (skips npm):
 
 ```bash
-ansible-playbook playbooks/setup.yml -e env=prod
+ansible-playbook playbooks/setup.yml -K -e env=prod
 ```
 
-### 4. Configure AWS CLI (Local/WSL Only)
+### 4. Sign in to AWS (Local/WSL Only)
 
-After running setup, configure AWS CLI:
+After running setup, sign in:
 
 ```bash
-aws configure
+aws login                    # the default profile
+aws login --profile my-name  # or a named one
 ```
 
-You'll be prompted for:
-- AWS Access Key ID
-- AWS Secret Access Key
-- Default region (e.g., `us-east-1`)
-- Default output format (e.g., `json`)
+It opens your browser to sign in, then gives the CLI short-lived credentials that renew themselves for up to 12 hours, so no access keys are stored on the machine. It needs AWS CLI 2.32 or later, which setup makes sure of, and an IAM identity with the `SignInLocalDevelopmentAccess` policy. With a named profile, pass `--profile my-name` or set `AWS_PROFILE=my-name`; dev-scripts' `in-aws my-name <command>` also signs in again when the session runs out.
 
 > **Note:** On EC2 instances, use IAM roles instead - no manual configuration needed.
 
@@ -210,9 +222,9 @@ Complete example: Pull and run a Node.js server.
 
 ```bash
 # 1. Setup (first time only)
-ansible-playbook playbooks/setup.yml
+ansible-playbook playbooks/setup.yml -K
 newgrp docker
-aws configure
+aws login
 
 # 2. Pull and run Node.js
 ansible-playbook playbooks/deploy.yml \
@@ -239,6 +251,8 @@ docker stop node && docker rm node
 | tfenv | 3.2.2 |
 | Terraform | 1.16.5 |
 | AWS CLI | 2.37.10 |
+| gh | 2.102.0 |
+| Docker Compose | 5.6.0 |
 
 ## Project Structure
 
@@ -256,7 +270,8 @@ docker stop node && docker rm node
 │   │   └── tasks/
 │   │       ├── main.yml     # Base packages, AWS CLI
 │   │       ├── node.yml     # Node.js through nvm (dev only)
-│   │       └── terraform.yml # Terraform through tfenv (dev only)
+│   │       ├── terraform.yml # Terraform through tfenv (dev only)
+│   │       └── gh.yml       # The GitHub CLI from GitHub's repo (dev only)
 │   ├── docker/
 │   │   └── tasks/
 │   │       └── main.yml     # Docker installation
