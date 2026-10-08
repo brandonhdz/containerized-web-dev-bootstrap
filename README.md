@@ -64,6 +64,9 @@ This will install:
 - Docker CE (core engine, CLI, containerd)
 - Python Docker SDK (for community.docker)
 - Adds your user to the `docker` group
+- [dev-scripts](https://github.com/brandonhdz/dev-scripts) (private): bash commands for development (`in-aws`, `log-run`, `tf`, `ans-pbk`), linked into `~/bin`, with tab completion. As you, not root.
+
+> **Note:** dev-scripts is cloned over SSH, so this machine's SSH key has to be on GitHub first: `ssh-keygen -t ed25519`, then `gh ssh-key add ~/.ssh/id_ed25519.pub` (or github.com/settings/keys), and check with `ssh -T git@github.com`. A clone that's already there is left alone; update it with `git pull`.
 
 > **Note:** After first install, log out and back in (or run `newgrp docker`) for docker group membership to take effect.
 
@@ -244,9 +247,14 @@ docker stop node && docker rm node
 │   ├── base/
 │   │   └── tasks/
 │   │       └── main.yml     # Node.js, npm (dev only), AWS CLI
-│   └── docker/
+│   ├── docker/
+│   │   └── tasks/
+│   │       └── main.yml     # Docker installation
+│   └── dev_scripts/
+│       ├── defaults/
+│       │   └── main.yml     # Where dev-scripts comes from and goes
 │       └── tasks/
-│           └── main.yml     # Docker installation
+│           └── main.yml     # Clone dev-scripts, run its install.sh
 └── README.md
 ```
 

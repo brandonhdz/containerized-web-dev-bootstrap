@@ -1,0 +1,35 @@
+---
+# dev-scripts (github.com/brandonhdz/dev-scripts): bash commands for
+# development (in-aws, log-run, tf, ans-pbk) and their tab completion, which
+# its install.sh links into ~/bin. Done as you, not root. A clone that's
+# already there is left as it is: update it with git pull.
+- name: Clone dev-scripts
+  become: false
+  block:
+    - name: Clone dev-scripts
+      ansible.builtin.git:
+        repo: "{{ dev_scripts_repo }}"
+        dest: "{{ dev_scripts_dest }}"
+        version: main
+        update: false
+        accept_newhostkey: true
+  rescue:
+    - name: Explain a failed clone
+      ansible.builtin.fail:
+        msg: >-
+          Couldn't clone {{ dev_scripts_repo }}. It's private, so this
+          machine's SSH key has to be on GitHub: make one (ssh-keygen -t
+          ed25519), add it (gh ssh-key add ~/.ssh/id_ed25519.pub, or
+          github.com/settings/keys), check it (ssh -T git@github.com), and
+          run the playbook again.
+
+- name: Install dev-scripts (commands into ~/bin, completions for bash)
+  become: false
+  ansible.builtin.command: "{{ dev_scripts_dest }}/install.sh"
+  register: dev_scripts_install
+  changed_when: "'up to date' not in dev_scripts_install.stdout"
+
+- name: Display dev-scripts status
+  ansible.builtin.debug:
+    msg: "{{ dev_scripts_install.stdout_lines }}"
+  when: dev_scripts_install.stdout_lines is defined
