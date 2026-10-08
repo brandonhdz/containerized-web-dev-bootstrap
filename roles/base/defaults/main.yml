@@ -11,3 +11,7 @@ nvm_dir: "{{ lookup('env', 'HOME') }}/.nvm"
 tfenv_version: v3.2.2
 terraform_version: latest
 tfenv_dir: "{{ lookup('env', 'HOME') }}/.tfenv"
+
+# The oldest AWS CLI kept: older ones are updated to the latest (2.32 is the
+# first with `aws login`, short-lived credentials instead of access keys).
+aws_cli_min_version: "2.32.0"

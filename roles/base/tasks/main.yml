@@ -1,11 +1,4 @@
 ---
-# Pre-flight checks
-- name: Check if AWS CLI is installed
-  ansible.builtin.command: which aws
-  register: aws_check
-  changed_when: false
-  failed_when: false
-
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: yes
@@ -34,13 +27,30 @@
   ansible.builtin.include_tasks: terraform.yml
   when: env == "dev"
 
-# AWS CLI installation
+# The GitHub CLI from GitHub's own apt repo (dev only): gh.yml.
+- name: GitHub CLI (dev only)
+  ansible.builtin.include_tasks: gh.yml
+  when: env == "dev"
+
+# AWS CLI v2, the latest from AWS, when it's missing or older than
+# aws_cli_min_version (2.32, the first with `aws login`).
+- name: Get the AWS CLI's version
+  ansible.builtin.shell: aws --version 2>/dev/null | sed -nE 's#^aws-cli/([0-9.]+).*#\1#p'
+  register: aws_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Decide whether the AWS CLI needs installing or updating
+  ansible.builtin.set_fact:
+    aws_install: "{{ aws_installed.stdout == '' or aws_installed.stdout is version(aws_cli_min_version, '<') }}"
+
 - name: Download AWS CLI
   ansible.builtin.get_url:
     url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
     dest: /tmp/awscliv2.zip
     mode: '0644'
-  when: aws_check.rc != 0
+  when: aws_install
 
 - name: Unzip AWS CLI
   ansible.builtin.unarchive:
@@ -48,13 +58,11 @@
     dest: /tmp
     remote_src: yes
     creates: /tmp/aws
-  when: aws_check.rc != 0
+  when: aws_install
 
-- name: Install AWS CLI
+- name: Install or update AWS CLI
   ansible.builtin.command: /tmp/aws/install --update
-  args:
-    creates: /usr/local/bin/aws
-  when: aws_check.rc != 0
+  when: aws_install
 
 - name: Get AWS CLI version
   ansible.builtin.command: aws --version
@@ -63,7 +71,7 @@
 
 - name: Display AWS CLI status
   ansible.builtin.debug:
-    msg: "AWS CLI version: {{ aws_version.stdout }}{% if aws_check.rc == 0 %} (already installed){% endif %}"
+    msg: "AWS CLI version: {{ aws_version.stdout }}{% if not aws_install %} (already installed){% endif %}"
 
 - name: Cleanup AWS CLI install files
   ansible.builtin.file:
@@ -72,4 +80,4 @@
   loop:
     - /tmp/awscliv2.zip
     - /tmp/aws
-  when: aws_check.rc != 0
+  when: aws_install

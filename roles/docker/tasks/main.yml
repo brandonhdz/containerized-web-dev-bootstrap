@@ -39,6 +39,8 @@
       - docker-ce
       - docker-ce-cli
       - containerd.io
+      - docker-buildx-plugin   # docker build's builder
+      - docker-compose-plugin  # docker compose (projects' compose.yml)
       - python3-docker  # Required for community.docker modules
     state: present
   when: docker_check.rc != 0
