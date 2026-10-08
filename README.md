@@ -59,7 +59,8 @@ ansible-playbook playbooks/setup.yml
 ```
 
 This will install:
-- Node.js and npm (dev only)
+- Node.js 24 LTS and npm, through [nvm](https://github.com/nvm-sh/nvm), for you (dev only). For an older project, `nvm install 18` and `nvm use 18`, or an `.nvmrc` in it. Ubuntu's own Node.js, if an earlier run installed it, is removed first.
+- Terraform through [tfenv](https://github.com/tfutils/tfenv), for you (dev only): the newest as your default, and in a project with a `.terraform-version` file, the version it names (downloaded the first time you run `terraform` there). Every download is checked against HashiCorp's signing key. `terraform` and `tfenv` are linked into `~/.local/bin`, on PATH once you log in again. A `terraform` already there, installed by hand, stops the run with how to move it aside.
 - AWS CLI v2
 - Docker CE (core engine, CLI, containerd)
 - Python Docker SDK (for community.docker)
@@ -232,7 +233,12 @@ docker stop node && docker rm node
 
 | Tool | Version |
 |------|---------|
-| npm | 9.2.0 |
+| nvm | 0.40.8 |
+| Node.js | 24.21.0 |
+| npm | 11.19.0 |
+| tfenv | 3.2.2 |
+| Terraform | 1.16.5 |
+| AWS CLI | 2.37.10 |
 
 ## Project Structure
 
@@ -245,8 +251,12 @@ docker stop node && docker rm node
 │   └── deploy.yml           # ECR login + pull/run container
 ├── roles/
 │   ├── base/
+│   │   ├── defaults/
+│   │   │   └── main.yml     # nvm, Node.js, tfenv, and Terraform versions
 │   │   └── tasks/
-│   │       └── main.yml     # Node.js, npm (dev only), AWS CLI
+│   │       ├── main.yml     # Base packages, AWS CLI
+│   │       ├── node.yml     # Node.js through nvm (dev only)
+│   │       └── terraform.yml # Terraform through tfenv (dev only)
 │   ├── docker/
 │   │   └── tasks/
 │   │       └── main.yml     # Docker installation

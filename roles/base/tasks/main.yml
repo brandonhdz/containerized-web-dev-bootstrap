@@ -6,13 +6,6 @@
   changed_when: false
   failed_when: false
 
-- name: Check if npm is installed
-  ansible.builtin.command: which npm
-  register: npm_check
-  changed_when: false
-  failed_when: false
-  when: env == "dev"
-
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: yes
@@ -26,28 +19,19 @@
       - gnupg
       - unzip
       - python3-pip  # Required for ansible collections
+      - git          # nvm, dev-scripts
+      - bash-completion
+      - xdg-utils    # xdg-open: tools open your browser with it (aws login, gh)
     state: present
 
-# Node.js / npm (dev only)
-- name: Install Node.js and npm (dev only)
-  ansible.builtin.apt:
-    name:
-      - nodejs
-      - npm
-    state: present
-  when:
-    - env == "dev"
-    - npm_check.rc != 0
-
-- name: Get npm version
-  ansible.builtin.command: npm --version
-  register: npm_version
-  changed_when: false
+# Node.js through nvm (dev only): node.yml.
+- name: Node.js (dev only)
+  ansible.builtin.include_tasks: node.yml
   when: env == "dev"
 
-- name: Display npm status
-  ansible.builtin.debug:
-    msg: "npm version: {{ npm_version.stdout }}{% if npm_check.rc == 0 %} (already installed){% endif %}"
+# Terraform through tfenv (dev only): terraform.yml.
+- name: Terraform (dev only)
+  ansible.builtin.include_tasks: terraform.yml
   when: env == "dev"
 
 # AWS CLI installation

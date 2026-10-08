@@ -1,0 +1,57 @@
+---
+# Node.js through nvm (Node Version Manager), for you, not root: node_version
+# as your default, and any other version a project needs with `nvm install`
+# and `nvm use` (or the project's .nvmrc). Ubuntu's own nodejs (18), from an
+# earlier run, goes first, so there's one Node; xdg-utils, which came with
+# Ubuntu's npm, stays (base dependencies).
+- name: Remove Ubuntu's Node.js and npm, replaced by nvm's
+  ansible.builtin.apt:
+    name:
+      - nodejs
+      - npm
+    state: absent
+    purge: true
+
+- name: Get nvm {{ nvm_version }}
+  become: false
+  ansible.builtin.git:
+    repo: https://github.com/nvm-sh/nvm.git
+    dest: "{{ nvm_dir }}"
+    version: "{{ nvm_version }}"
+    depth: 1
+
+- name: Load nvm in your shells
+  become: false
+  ansible.builtin.blockinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    marker: "# {mark} nvm (containerized-web-dev-bootstrap)"
+    block: |
+      export NVM_DIR="$HOME/.nvm"
+      [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+      [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+- name: Install Node.js {{ node_version }} as your default
+  become: false
+  ansible.builtin.shell: |
+    . "{{ nvm_dir }}/nvm.sh"
+    nvm install {{ node_version }}
+    nvm alias default {{ node_version }}
+  args:
+    executable: /bin/bash
+  register: node_install
+  changed_when: "'Downloading and installing' in (node_install.stdout + node_install.stderr)"
+
+- name: Get Node.js, npm, and nvm versions
+  become: false
+  ansible.builtin.shell: |
+    . "{{ nvm_dir }}/nvm.sh"
+    echo "node $(node --version), npm $(npm --version), nvm $(nvm --version)"
+  args:
+    executable: /bin/bash
+  register: node_versions
+  changed_when: false
+
+- name: Display Node.js status
+  ansible.builtin.debug:
+    msg: "{{ node_versions.stdout }}"
+  when: node_versions.stdout is defined
