@@ -1,0 +1,6 @@
+---
+# Node.js, through nvm (dev only): nvm's release, and the Node version that's
+# your default (the newest 24.x when the playbook runs).
+nvm_version: v0.40.8
+node_version: "24"
+nvm_dir: "{{ lookup('env', 'HOME') }}/.nvm"
